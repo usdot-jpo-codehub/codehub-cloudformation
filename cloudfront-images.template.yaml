@@ -1,0 +1,32 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  OAI:
+    Type: String
+  S3ORIGIN:
+    Type: String
+Resources:
+  ImagesDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !Ref S3ORIGIN
+            Id: S3-codehub-images
+            OriginPath: /categories
+            S3OriginConfig:
+              OriginAccessIdentity: !Ref OAI
+        Enabled: "true"
+        DefaultRootObject: ""
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+          TargetOriginId: S3-codehub-images
+          ForwardedValues:
+            QueryString: "false"
+            Cookies:
+              Forward: none
+          ViewerProtocolPolicy: allow-all
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: "true"
