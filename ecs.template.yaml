@@ -100,6 +100,9 @@ Resources:
           Image: !Sub "${AWS::AccountId}.dkr.ecr.region.amazonaws.com/import-export-dev:latest"
           PortMappings:
             - ContainerPort: !Ref ImportExportPort
+          Environment:
+            - Name: VARIABLE_2
+              Value: "variable_2"
           LogConfiguration:
             LogDriver: awslogs
             Options:
