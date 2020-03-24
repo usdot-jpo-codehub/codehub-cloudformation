@@ -1,0 +1,113 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ECS services used by ITS CodeHub.
+Parameters:
+  TaskRoleArn:
+    Type: String
+  ExecutionRoleArn:
+    Type: String
+  ImportExportPort:
+    Type: Number
+    Default: 80
+  VPCIdDev:
+    Type: "AWS::EC2::VPC::Id"
+  LBSecurityGroupDev:
+    Type: "AWS::EC2::SecurityGroup::Id"
+  ServiceSecurityGroupDev:
+    Type: "AWS::EC2::SecurityGroup::Id"
+  SubnetADev:
+    Type: "AWS::EC2::Subnet::Id"
+  SubnetBDev:
+    Type: "AWS::EC2::Subnet::Id"
+
+Resources:
+  ################################
+  ### Import/Export Tool Resources
+
+  ImportExportServiceDev:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ImportExportListenerDev
+    Properties:
+      ServiceName: import-export-service-dev
+      Cluster: codehub-cluster-dev
+      TaskDefinition: !Ref ImportExportTaskDefDev
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      DesiredCount: 1
+      HealthCheckGracePeriodSeconds: 60
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref SubnetADev
+            - !Ref SubnetBDev
+          SecurityGroups:
+            - !Ref ServiceSecurityGroupDev
+      LoadBalancers:
+        - ContainerName: import-export-dev-container
+          ContainerPort: !Ref ImportExportPort
+          TargetGroupArn: !Ref ImportExportTargetGroupDev
+
+  ImportExportTargetGroupDev:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckPath: "/"
+      Name: import-export-dev-tg
+      Port: !Ref ImportExportPort
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref VPCIdDev
+
+  ImportExportListenerDev:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref ImportExportTargetGroupDev
+          Type: forward
+      LoadBalancerArn: !Ref ImportExportLoadBalancerDev
+      Port: !Ref ImportExportPort
+      Protocol: HTTP
+
+  ImportExportLoadBalancerDev:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: import-export-dev-lb
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref LBSecurityGroupDev
+      Subnets:
+        - !Ref SubnetADev
+        - !Ref SubnetBDev
+
+  ImportExportTaskDefDev:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn:
+      - ImportExportLogGroupDev
+    Properties:
+      Family: import-export-dev-taskdef
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 256
+      Memory: 0.5GB
+      ExecutionRoleArn: !Ref ExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: import-export-dev-container
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.region.amazonaws.com/import-export-dev:latest"
+          PortMappings:
+            - ContainerPort: !Ref ImportExportPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref ImportExportLogGroupDev
+              awslogs-stream-prefix: ecs
+
+  ImportExportLogGroupDev:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "/ecs/import-export-dev-taskdef"
