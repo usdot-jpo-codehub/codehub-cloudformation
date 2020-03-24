@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CodeBuild projects and ECR repositories for ITS CodeHub.
+
+Parameters:
+  CodeBuildRoleArn:
+    Type: String
+
+Resources:
+  ################################
+  ### Import/Export Tool Resources
+
+  # ECR Repositories
+  ImportExportECRDev:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: import-export-dev
+
+  # CodeBuild Projects
+  ImportExportCodeBuildGeneric:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Description: CodeBuild project for testing buildability of all commits.
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:3.0
+        Type: LINUX_CONTAINER
+        PrivilegedMode: True
+        EnvironmentVariables:
+          - Name: VARIABLE_1
+            Type: PLAINTEXT
+            Value: "variable_1"
+      Name: import-export-generic
+      ServiceRole: !Ref CodeBuildRoleArn
+      Source:
+        Auth:
+          Type: OAUTH
+        Location: https://github.com/usdot-jpo-codehub/codehub-import-export.git # TODO validate this
+        Type: GITHUB
+      Triggers:
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: PUSH
+            - Type: HEAD_REF
+              Pattern: "^refs/heads/(master|development)$"
+              ExcludeMatchedPattern: True
+        Webhook: True
+
+  ImportExportCodeBuildDev:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Description: CodeBuild project for deploying the Import/Export to dev.
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:3.0
+        Type: LINUX_CONTAINER
+        PrivilegedMode: True
+        EnvironmentVariables:
+          - Name: VARIABLE_1
+            Type: PLAINTEXT
+            Value: "variable_1"
+      Name: import-export-dev
+      ServiceRole: !Ref CodeBuildRoleArn
+      Source:
+        Auth:
+          Type: OAUTH
+        Location: https://github.com/usdot-jpo-codehub/codehub-import-export.git # TODO validate this
+        Type: GITHUB
+      Triggers:
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: PUSH
+            - Type: HEAD_REF
+              Pattern: "^refs/heads/development$"
+              ExcludeMatchedPattern: False
+        Webhook: True
