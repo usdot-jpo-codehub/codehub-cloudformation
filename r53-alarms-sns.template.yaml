@@ -1,0 +1,112 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CodeHub Route 53 health checks.
+
+Resources:
+
+  # Shared SNS topic used by health check alarms
+  AlarmsSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: healthcheck-alarms
+
+  #############################
+  # itscodehub.boozallencsn.com
+  BoozAllenHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties: 
+      HealthCheckConfig:
+        FullyQualifiedDomainName: itscodehub.boozallencsn.com
+        Type: HTTPS
+      HealthCheckTags:
+      - Key: Name
+        Value: BoozAllen_CodeHub_HealthCheck
+
+  BoozAllenHealthCheckAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: CSNCodeHubAlarm
+      AlarmDescription: Alarms when https://itscodehub.boozallencsn.com does not respond with 200 OK
+      AlarmActions:
+      - !Ref AlarmsSNSTopic
+      OKActions:
+      - !Ref AlarmsSNSTopic
+      MetricName: HealthCheckStatus
+      Namespace: AWS/Route53
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+      - Name: HealthCheckId
+        Value:
+          Ref: BoozAllenHealthCheck
+
+  ##################
+  # its.dot.gov/code
+  DOTHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties: 
+      HealthCheckConfig:
+        FullyQualifiedDomainName: its.dot.gov
+        ResourcePath: /code
+        Type: HTTPS
+      HealthCheckTags:
+      - Key: Name
+        Value: DOT_CodeHub_HealthCheck
+
+  DOTHealthCheckAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: DOTCodeHubAlarm
+      AlarmDescription: Alarms when https://its.dot.gov/code does not respond with 200 OK
+      AlarmActions:
+      - !Ref AlarmsSNSTopic
+      OKActions:
+      - !Ref AlarmsSNSTopic
+      MetricName: HealthCheckStatus
+      Namespace: AWS/Route53
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+      - Name: HealthCheckId
+        Value:
+          Ref: DOTHealthCheck
+  
+  ##################
+  # itscodehub.boozallencsn.com/apicc
+  APIConnectivityHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties: 
+      HealthCheckConfig:
+        FullyQualifiedDomainName: itscodehub.boozallencsn.com
+        ResourcePath: /apicc
+        Type: HTTPS
+      HealthCheckTags:
+      - Key: Name
+        Value: API_Connectivity_CodeHub_HealthCheck
+
+  APIConnectivityHealthCheckAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: APIConnectivityCodeHubAlarm
+      AlarmDescription: Alarms when https://itscodehub.boozallencsn.com/apicc does not respond with 200 OK
+      AlarmActions:
+      - !Ref AlarmsSNSTopic
+      OKActions:
+      - !Ref AlarmsSNSTopic
+      MetricName: HealthCheckStatus
+      Namespace: AWS/Route53
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+      - Name: HealthCheckId
+        Value:
+          Ref: APIConnectivityHealthCheck
