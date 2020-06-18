@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CodeHub CI/CD Template
+
+Parameters:
+# Project Specific Variables 
+  ProjectName:
+    Type: String
+    # Default: 'webapi'
+  GithubRepoUrl:
+    Type: String
+    # Default: "https://github.com/owner/repo.git"
+
+# AWS Environment Specific Variables:
+  TaskRoleArn:
+    Type: String
+  ExecutionRoleArn:
+    Type: String
+  VPCId:
+    Type: "AWS::EC2::VPC::Id"
+  SubnetA:
+    Type: "AWS::EC2::Subnet::Id"
+  SubnetB:
+    Type: "AWS::EC2::Subnet::Id"
+  RepoBranch:
+    Type: String
+    # Default: "development"
+    Default: "master"
+
+Resources:
+  # ECR Repository
+  ECRRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectName}'
+
+  # Codebuild Job
+  CodebuildJob:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Description: !Sub 'Codebuild job for ITS CodeHub ${ProjectName}'
+      Environment:
+        ComputeType: Build_General1_SMALL
+        Image: aws/codebuild/standard:3.0
+        Type: LINUX_CONTAINER
+        PrivilegedMode: True
+        EnvironmentVariables:
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+            Type: PLAINTEXT
+          - Name: IMAGE_REPO_NAME
+            Value: !Sub '${ProjectName}'
+            Type: PLAINTEXT
+        Name: !Sub '${ProjectName}'
+        ServiceRole: !Ref ExecutionRoleArn
+        Source:
+          Auth:
+            Type: OAUTH
+          Location: !Ref GithubRepoUrl
+          Type: GITHUB
+        Triggers:
+          FilterGroups:
+            - - Type: EVENT
+                Pattern: PUSH
+              - Type: HEAD_REF
+                Pattern: !Sub "^refs/heads/${RepoBranch}"
+                ExcludeMatchedPattern: False
+          Webhook: True

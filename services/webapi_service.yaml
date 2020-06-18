@@ -1,0 +1,143 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ECS services used by ITS CodeHub.
+Parameters:
+  ProjectName:
+    Type: String
+    Default: 'webapi'
+  TaskRoleArn:
+    Type: String
+  ExecutionRoleArn:
+    Type: String
+  VPCId:
+    Type: "AWS::EC2::VPC::Id"
+  LBSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup::Id"
+  ServiceSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup::Id"
+  SubnetA:
+    Type: "AWS::EC2::Subnet::Id"
+  SubnetB:
+    Type: "AWS::EC2::Subnet::Id"
+  ClusterName:
+    Type: String
+    Default: "codehub-cluster" 
+  ContainerPort:
+    Type: Number
+    Default: 3000
+  ElasticsearchHost:
+    Type: String
+
+Resources:
+# Task Def
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn:
+      - LogGroup
+    Properties:
+      Family: !Sub '${ProjectName}-taskdef'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 256
+      Memory: 0.5GB
+      ExecutionRoleArn: !Ref ExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: !Sub '${ProjectName}-container'
+          Image: !Sub: "${AWS::AccountId}.dkr.ecr.region.amazonaws.com/${ProjectName}:latest"
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+          Environment:
+            - Name: codehub.webapi.es.host
+              Value: !Ref ElasticsearchHost
+            - Name: codehub.webapi.es.port
+              Value: 443
+            - Name: codehub.webapi.es.scheme
+              Value: 'HTTPS'
+            - Name: datahub.ui.url.endpoint
+              Value: 'https://its.dot.gov/data'
+            - Name: JAVA_OPTS
+              Value: '-Xmx512M -Xms512M'
+            - Name: server.port
+              Value: !Ref ContainerPort
+          HealthCheck:
+            Command:
+              - 'CMD-SHELL curl -f http://localhost:3000/api/index.html || exit 1'
+            Interval: 60
+            Retries: 3
+            Timeout: 30
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: ecs
+            
+# Service
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - Listener
+    Properties:
+      ServiceName: !Sub '${ProjectName}-service'
+      Cluster: !Ref ClusterName
+      TaskDefinition: !Ref TaskDefinition
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      DesiredCount: 1
+      HealthCheckGracePeriodSeconds: 60
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref SubnetA
+            - !Ref SubnetB
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+      LoadBalancers:
+        - ContainerName: !Sub '${ProjectName}-container'
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroup
+      
+# Target Group
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckPath: '/'
+      Name: !Sub '${ProjectName}-target-group'
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref VPCId
+
+# Listener
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+        Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+
+# Load Balancer
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${ProjectName}-load-balancer'
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref LBSecurityGroup
+      Subnets:
+        - !Ref SubnetA
+        - !Ref SubnetB
+
+# Log Group
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '${ProjectName}-taskdef'
