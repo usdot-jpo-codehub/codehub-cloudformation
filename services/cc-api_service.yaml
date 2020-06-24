@@ -4,7 +4,7 @@ Description: ECS services used by ITS CodeHub.
 Parameters:
   ProjectName:
     Type: String
-    Default: 'webapi'
+    Default: 'cc-api'
   TaskRoleArn:
     Type: String
   ExecutionRoleArn:
@@ -25,8 +25,6 @@ Parameters:
   ContainerPort:
     Type: Number
     Default: 3000
-  ElasticsearchHost:
-    Type: String
 
 Resources:
 # Task Def
@@ -40,7 +38,7 @@ Resources:
       RequiresCompatibilities:
         - FARGATE
       Cpu: 256
-      Memory: 0.5GB
+      Memory: 1GB
       ExecutionRoleArn: !Ref ExecutionRoleArn
       TaskRoleArn: !Ref TaskRoleArn
       ContainerDefinitions:
@@ -49,24 +47,18 @@ Resources:
           PortMappings:
             - ContainerPort: !Ref ContainerPort
           Environment:
-            - Name: codehub.webapi.es.host
+            - Name: cdhapicc.accessToken
               Value: '{{resolve:ssm:parameter-name:version}}'
-            - Name: codehub.webapi.es.port
+            - Name: cdhapicc.apiKey
               Value: '{{resolve:ssm:parameter-name:version}}'
-            - Name: codehub.webapi.es.scheme
+            - Name: server.port	
               Value: '{{resolve:ssm:parameter-name:version}}'
-            - Name: datahub.ui.url.endpoint
-              Value: '{{resolve:ssm:parameter-name:version}}'
-            - Name: JAVA_OPTS
-              Value: '{{resolve:ssm:parameter-name:version}}'
-            - Name: server.port
-              Value: !Ref ContainerPort
           HealthCheck:
             Command:
-              - 'CMD-SHELL curl -f http://localhost:3000/api/index.html || exit 1'
-            Interval: 60
+              - 'CMD-SHELL curl -f http://localhost:3000/apicc/index.html || exit 1'
+            Interval: 30
             Retries: 3
-            Timeout: 30
+            Timeout: 5
           LogConfiguration:
             LogDriver: awslogs
             Options:

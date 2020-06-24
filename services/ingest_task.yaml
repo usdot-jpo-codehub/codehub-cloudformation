@@ -1,0 +1,77 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ECS services used by ITS CodeHub.
+Parameters:
+  ProjectName:
+    Type: String
+    Default: 'ingest'
+  TaskRoleArn:
+    Type: String
+  ExecutionRoleArn:
+    Type: String
+  VPCId:
+    Type: "AWS::EC2::VPC::Id"
+  LBSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup::Id"
+  ServiceSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup::Id"
+  SubnetA:
+    Type: "AWS::EC2::Subnet::Id"
+  SubnetB:
+    Type: "AWS::EC2::Subnet::Id"
+  ClusterName:
+    Type: String
+    Default: "codehub-cluster" 
+  # ContainerPort:
+  #   Type: Number
+  #   Default: 3000
+
+Resources:
+# Task Def
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn:
+      - LogGroup
+    Properties:
+      Family: !Sub '${ProjectName}-taskdef'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 2048
+      Memory: 6GB
+      ExecutionRoleArn: !Ref ExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: !Sub '${ProjectName}-container'
+          Image: !Sub: "${AWS::AccountId}.dkr.ecr.region.amazonaws.com/${ProjectName}:latest"
+          # PortMappings:
+          #   - ContainerPort: !Ref ContainerPort
+          Environment:
+            - Name: ELASTICSEARCH_API_BASE_URL
+              Value: '{{resolve:ssm:parameter-name:version}}'
+            - Name: GITHUB_ACCESS_TOKEN
+              Value: '{{resolve:ssm:parameter-name:version}}'
+            - Name: GITHUB_USER
+              Value: '{{resolve:ssm:parameter-name:version}}'
+            - Name: SONAR_API_BASE_URL
+              Value: '{{resolve:ssm:parameter-name:version}}'
+            - Name: SLACK_WEBHOOK_URL
+              Value: '{{resolve:ssm:parameter-name:version}}'
+          # HealthCheck:
+          #   Command:
+          #     - 'CMD-SHELL curl -f http://localhost:3000/api/index.html || exit 1'
+          #   Interval: 60
+          #   Retries: 3
+          #   Timeout: 30
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: ecs
+
+# Log Group
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '${ProjectName}-taskdef'

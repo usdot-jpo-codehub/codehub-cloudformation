@@ -4,7 +4,7 @@ Description: ECS services used by ITS CodeHub.
 Parameters:
   ProjectName:
     Type: String
-    Default: 'webapi'
+    Default: 'admin-ui'
   TaskRoleArn:
     Type: String
   ExecutionRoleArn:
@@ -24,9 +24,7 @@ Parameters:
     Default: "codehub-cluster" 
   ContainerPort:
     Type: Number
-    Default: 3000
-  ElasticsearchHost:
-    Type: String
+    Default: 80
 
 Resources:
 # Task Def
@@ -49,24 +47,16 @@ Resources:
           PortMappings:
             - ContainerPort: !Ref ContainerPort
           Environment:
-            - Name: codehub.webapi.es.host
+            - Name: PROXY_PASS
               Value: '{{resolve:ssm:parameter-name:version}}'
-            - Name: codehub.webapi.es.port
+            - Name: PROXY_PASS_URL
               Value: '{{resolve:ssm:parameter-name:version}}'
-            - Name: codehub.webapi.es.scheme
-              Value: '{{resolve:ssm:parameter-name:version}}'
-            - Name: datahub.ui.url.endpoint
-              Value: '{{resolve:ssm:parameter-name:version}}'
-            - Name: JAVA_OPTS
-              Value: '{{resolve:ssm:parameter-name:version}}'
-            - Name: server.port
-              Value: !Ref ContainerPort
-          HealthCheck:
-            Command:
-              - 'CMD-SHELL curl -f http://localhost:3000/api/index.html || exit 1'
-            Interval: 60
-            Retries: 3
-            Timeout: 30
+          # HealthCheck:
+          #   Command:
+          #     - 'CMD-SHELL curl -f http://localhost:3000/api/index.html || exit 1'
+          #   Interval: 60
+          #   Retries: 3
+          #   Timeout: 30
           LogConfiguration:
             LogDriver: awslogs
             Options:
