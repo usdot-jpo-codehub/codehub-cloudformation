@@ -11,8 +11,8 @@ Parameters:
     # Default: "https://github.com/owner/repo.git"
 
 # AWS Environment Specific Variables:
-  TaskRoleArn:
-    Type: String
+  # TaskRoleArn:
+  #   Type: String
   ExecutionRoleArn:
     Type: String
   VPCId:
